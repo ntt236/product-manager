@@ -1,21 +1,32 @@
 require('dotenv').config();
 const { Pool } = require('pg');
+const { parse } = require('pg-connection-string');
 
 const connectionString = process.env.DATABASE_URL;
 
 let poolConfig = {
-  connectionString,
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 };
 
-// Supabase and hosted PostgreSQL require SSL
-// If DATABASE_URL indicates sslmode or is in production, enable standard SSL config
-if (connectionString && (connectionString.includes('sslmode=require') || connectionString.includes('supabase') || process.env.NODE_ENV === 'production')) {
-  poolConfig.ssl = {
-    rejectUnauthorized: false, // Standard for cloud pg pooler connections without dedicated CA bundle
+if (connectionString) {
+  const parsed = parse(connectionString);
+  poolConfig = {
+    ...poolConfig,
+    ...parsed,
   };
+
+  // Supabase pooler / hosted PostgreSQL SSL configuration
+  if (
+    connectionString.includes('sslmode=require') ||
+    connectionString.includes('supabase') ||
+    process.env.NODE_ENV === 'production'
+  ) {
+    poolConfig.ssl = {
+      rejectUnauthorized: false,
+    };
+  }
 }
 
 const pool = new Pool(poolConfig);
