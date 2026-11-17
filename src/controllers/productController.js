@@ -10,6 +10,12 @@ class ProductController {
       const search = req.query.search ? req.query.search.trim() : null;
       const categoryId = req.query.category_id ? parseInt(req.query.category_id, 10) : null;
       const inStock = req.query.in_stock === 'true';
+      const gender = req.query.gender ? req.query.gender.trim() : null;
+      const size = req.query.size ? req.query.size.trim() : null;
+      const color = req.query.color ? req.query.color.trim() : null;
+      const minPrice = req.query.min_price ? parseFloat(req.query.min_price) : null;
+      const maxPrice = req.query.max_price ? parseFloat(req.query.max_price) : null;
+      const sort = req.query.sort ? req.query.sort.trim() : null;
 
       // For customer/user role, default to only active products; admins/managers can see all
       const isAdminOrManager = req.user && ['admin', 'manager'].includes(req.user.role);
@@ -20,6 +26,12 @@ class ProductController {
       const { products, total } = await ProductModel.findAll({
         search,
         categoryId,
+        gender,
+        size,
+        color,
+        minPrice,
+        maxPrice,
+        sort,
         isActive,
         inStock,
         limit,
@@ -48,7 +60,7 @@ class ProductController {
   static async getById(req, res, next) {
     try {
       const { id } = req.params;
-      const product = await ProductModel.findById(id);
+      const product = await ProductModel.findById(id, true);
       if (!product) {
         return res.status(404).json({
           success: false,

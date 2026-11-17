@@ -1,6 +1,23 @@
 const pool = require('../config/db');
 
 class VariantModel {
+  static async syncProductTotalStock(productId) {
+    if (!productId) return;
+    await pool.query(
+      `
+      UPDATE public.products
+      SET stock_quantity = (
+        SELECT COALESCE(SUM(stock_quantity), 0)
+        FROM public.product_variants
+        WHERE product_id = $1 AND is_active = true
+      ),
+      updated_at = NOW()
+      WHERE id = $1 AND EXISTS (SELECT 1 FROM public.product_variants WHERE product_id = $1)
+    `,
+      [productId]
+    );
+  }
+
   static async create({ productId, size, color, colorCode, sku, priceOverride, stockQuantity = 0, imageUrl, isActive = true }) {
     const query = `
       INSERT INTO public.product_variants (product_id, size, color, color_code, sku, price_override, stock_quantity, image_url, is_active)
@@ -18,6 +35,7 @@ class VariantModel {
     `;
     const values = [productId, size, color, colorCode || null, sku || null, priceOverride || null, stockQuantity, imageUrl || null, isActive];
     const res = await pool.query(query, values);
+    await this.syncProductTotalStock(productId);
     return res.rows[0];
   }
 
@@ -58,6 +76,7 @@ class VariantModel {
       }
 
       await client.query('COMMIT');
+      await this.syncProductTotalStock(productId);
       return results;
     } catch (err) {
       await client.query('ROLLBACK');
@@ -105,12 +124,19 @@ class VariantModel {
     `;
     const values = [size, color, colorCode, sku, priceOverride, stockQuantity, imageUrl, isActive, id];
     const res = await pool.query(query, values);
+    if (res.rows[0]) {
+      await this.syncProductTotalStock(res.rows[0].product_id);
+    }
     return res.rows[0] || null;
   }
 
   static async delete(id) {
+    const varRes = await pool.query('SELECT product_id FROM public.product_variants WHERE id = $1', [id]);
     const query = 'DELETE FROM public.product_variants WHERE id = $1 RETURNING id';
     const res = await pool.query(query, [id]);
+    if (varRes.rows[0]) {
+      await this.syncProductTotalStock(varRes.rows[0].product_id);
+    }
     return res.rows[0] || null;
   }
 }

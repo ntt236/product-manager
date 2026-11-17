@@ -227,30 +227,26 @@ const variantCreateValidator = [
   validateRequest,
 ];
 
-// Address validators
+// Address validators: flexible body acceptance
 const addressCreateValidator = [
-  body('receiver_name')
-    .trim()
-    .notEmpty()
-    .withMessage('Receiver name is required')
-    .isLength({ min: 2, max: 100 }),
-  body('phone')
-    .trim()
-    .notEmpty()
-    .withMessage('Phone number is required')
-    .isLength({ min: 8, max: 20 }),
-  body('street_address')
-    .trim()
-    .notEmpty()
-    .withMessage('Street address is required'),
-  body('district')
-    .trim()
-    .notEmpty()
-    .withMessage('District is required'),
-  body('province')
-    .trim()
-    .notEmpty()
-    .withMessage('Province/City is required'),
+  body().custom((value, { req }) => {
+    const receiverName = req.body.receiver_name || req.body.receiverName || req.body.name || req.body.fullname;
+    if (!receiverName || typeof receiverName !== 'string' || receiverName.trim().length === 0) {
+      throw new Error('Receiver name (receiver_name / fullname) is required');
+    }
+
+    const phone = req.body.phone || req.body.phoneNumber || req.body.phone_number;
+    if (!phone || typeof phone !== 'string' || phone.trim().length < 8) {
+      throw new Error('Valid phone number (phone / phone_number) of at least 8 characters is required');
+    }
+
+    const streetAddress = req.body.street_address || req.body.streetAddress || req.body.address || req.body.street;
+    if (!streetAddress || typeof streetAddress !== 'string' || streetAddress.trim().length === 0) {
+      throw new Error('Street address (street_address / address) is required');
+    }
+
+    return true;
+  }),
   validateRequest,
 ];
 

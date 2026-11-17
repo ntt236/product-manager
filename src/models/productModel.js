@@ -122,7 +122,10 @@ class ProductModel {
              p.created_at, p.updated_at,
              c.name AS category_name,
              u.name AS creator_name,
-             (SELECT COUNT(*) FROM public.product_variants pv WHERE pv.product_id = p.id) AS variant_count
+             (SELECT COUNT(*) FROM public.product_variants pv WHERE pv.product_id = p.id) AS variant_count,
+             (SELECT ARRAY_AGG(DISTINCT pv.size) FROM public.product_variants pv WHERE pv.product_id = p.id AND pv.is_active = true) AS available_sizes,
+             (SELECT ARRAY_AGG(DISTINCT pv.color) FROM public.product_variants pv WHERE pv.product_id = p.id AND pv.is_active = true) AS available_colors,
+             (SELECT COALESCE(SUM(pv.stock_quantity), 0) FROM public.product_variants pv WHERE pv.product_id = p.id AND pv.is_active = true) AS total_variant_stock
       FROM public.products p
       JOIN public.categories c ON p.category_id = c.id
       LEFT JOIN public.users u ON p.created_by = u.id

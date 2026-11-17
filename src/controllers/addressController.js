@@ -16,16 +16,24 @@ class AddressController {
 
   static async create(req, res, next) {
     try {
-      const { receiver_name, phone, street_address, ward, district, province, is_default } = req.body;
+      // Support flexible field naming aliases from frontend
+      const receiverName = req.body.receiver_name || req.body.receiverName || req.body.name || req.body.fullname;
+      const phone = req.body.phone || req.body.phoneNumber || req.body.phone_number;
+      const streetAddress = req.body.street_address || req.body.streetAddress || req.body.address || req.body.street;
+      const ward = req.body.ward || null;
+      const district = req.body.district || req.body.city || '';
+      const province = req.body.province || req.body.state || req.body.city || '';
+      const isDefault = req.body.is_default !== undefined ? req.body.is_default : req.body.isDefault;
+
       const address = await AddressModel.create({
         userId: req.user.id,
-        receiverName: receiver_name,
+        receiverName,
         phone,
-        streetAddress: street_address,
+        streetAddress,
         ward,
         district,
         province,
-        isDefault: Boolean(is_default),
+        isDefault: Boolean(isDefault),
       });
 
       return res.status(201).json({
@@ -41,16 +49,22 @@ class AddressController {
   static async update(req, res, next) {
     try {
       const { id } = req.params;
-      const { receiver_name, phone, street_address, ward, district, province, is_default } = req.body;
+      const receiverName = req.body.receiver_name || req.body.receiverName || req.body.name;
+      const phone = req.body.phone || req.body.phoneNumber || req.body.phone_number;
+      const streetAddress = req.body.street_address || req.body.streetAddress || req.body.address;
+      const ward = req.body.ward;
+      const district = req.body.district;
+      const province = req.body.province || req.body.city;
+      const isDefault = req.body.is_default !== undefined ? req.body.is_default : req.body.isDefault;
 
       const updated = await AddressModel.update(id, req.user.id, {
-        receiverName: receiver_name,
+        receiverName,
         phone,
-        streetAddress: street_address,
+        streetAddress,
         ward,
         district,
         province,
-        isDefault: is_default !== undefined ? Boolean(is_default) : undefined,
+        isDefault: isDefault !== undefined ? Boolean(isDefault) : undefined,
       });
 
       if (!updated) {
