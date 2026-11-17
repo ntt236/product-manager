@@ -109,10 +109,11 @@ describe('E-Commerce Core (Cart, Address, Order Checkout)', () => {
             id: 1,
             cart_id: 100,
             product_id: 5,
+            variant_id: null,
             quantity: 2,
             product_name: 'Wireless Mouse',
-            product_price: '25.00',
-            stock_quantity: 10,
+            unit_price: '25.00',
+            available_stock: 10,
             is_active: true,
             subtotal: '50.00',
           },
@@ -171,11 +172,17 @@ describe('E-Commerce Core (Cart, Address, Order Checkout)', () => {
             {
               item_id: 1,
               product_id: 2,
+              variant_id: null,
               quantity: 2,
               product_name: 'Pro Keyboard',
-              price: '80.00',
-              stock_quantity: 15,
-              is_active: true,
+              product_price: '80.00',
+              product_stock: 15,
+              product_is_active: true,
+              size: null,
+              color: null,
+              price_override: null,
+              variant_stock: null,
+              variant_is_active: null,
             },
           ],
         }) // cart items with FOR UPDATE
@@ -237,7 +244,7 @@ describe('E-Commerce Core (Cart, Address, Order Checkout)', () => {
         }) // find order
         .mockResolvedValueOnce({}) // update status to cancelled
         .mockResolvedValueOnce({
-          rows: [{ product_id: 2, quantity: 2 }],
+          rows: [{ product_id: 2, variant_id: null, quantity: 2 }],
         }) // find order items
         .mockResolvedValueOnce({}) // refund stock
         .mockResolvedValueOnce({}); // COMMIT

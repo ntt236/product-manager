@@ -19,7 +19,7 @@ class OrderModel {
         throw err;
       }
 
-      // 2. Fetch Cart and Cart Items
+      // 2. Fetch Cart and Cart Items with Variants
       const cartRes = await client.query('SELECT id FROM public.carts WHERE user_id = $1 LIMIT 1', [userId]);
       if (cartRes.rows.length === 0) {
         const err = new Error('Cart is empty');
@@ -28,12 +28,14 @@ class OrderModel {
       }
       const cartId = cartRes.rows[0].id;
 
-      // Lock products with FOR UPDATE to prevent race condition during stock deduction
+      // Lock products and variants FOR UPDATE to prevent race condition during stock deduction
       const itemsQuery = `
-        SELECT ci.id AS item_id, ci.product_id, ci.quantity,
-               p.name AS product_name, p.price, p.stock_quantity, p.is_active
+        SELECT ci.id AS item_id, ci.product_id, ci.variant_id, ci.quantity,
+               p.name AS product_name, p.price AS product_price, p.stock_quantity AS product_stock, p.is_active AS product_is_active,
+               pv.size, pv.color, pv.price_override, pv.stock_quantity AS variant_stock, pv.is_active AS variant_is_active
         FROM public.cart_items ci
         JOIN public.products p ON ci.product_id = p.id
+        LEFT JOIN public.product_variants pv ON ci.variant_id = pv.id
         WHERE ci.cart_id = $1
         FOR UPDATE OF p
       `;
@@ -49,21 +51,24 @@ class OrderModel {
       // 3. Validate stock & active status
       let totalAmount = 0;
       for (const item of items) {
-        if (!item.is_active) {
+        if (!item.product_is_active || (item.variant_id && !item.variant_is_active)) {
           const err = new Error(`Product '${item.product_name}' is currently unavailable`);
           err.statusCode = 400;
           throw err;
         }
 
-        if (item.quantity > item.stock_quantity) {
+        const effectiveStock = item.variant_id ? item.variant_stock : item.product_stock;
+        if (item.quantity > effectiveStock) {
+          const detail = item.variant_id ? `(${item.size} - ${item.color})` : '';
           const err = new Error(
-            `Product '${item.product_name}' has only ${item.stock_quantity} left in stock (you requested ${item.quantity})`
+            `Product '${item.product_name}' ${detail} has only ${effectiveStock} left in stock (you requested ${item.quantity})`
           );
           err.statusCode = 400;
           throw err;
         }
 
-        totalAmount += parseFloat(item.price) * parseInt(item.quantity, 10);
+        const itemPrice = item.price_override ? parseFloat(item.price_override) : parseFloat(item.product_price);
+        totalAmount += itemPrice * parseInt(item.quantity, 10);
       }
 
       // 4. Generate unique order code
@@ -95,21 +100,29 @@ class OrderModel {
 
       // 6. Insert Order Items & Deduct Stock
       for (const item of items) {
-        const subtotal = (parseFloat(item.price) * parseInt(item.quantity, 10)).toFixed(2);
+        const unitPrice = item.price_override ? parseFloat(item.price_override) : parseFloat(item.product_price);
+        const subtotal = (unitPrice * parseInt(item.quantity, 10)).toFixed(2);
 
         await client.query(
           `
-          INSERT INTO public.order_items (order_id, product_id, product_name_snapshot, price_snapshot, quantity, subtotal)
-          VALUES ($1, $2, $3, $4, $5, $6)
+          INSERT INTO public.order_items (order_id, product_id, variant_id, size_snapshot, color_snapshot, product_name_snapshot, price_snapshot, quantity, subtotal)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `,
-          [order.id, item.product_id, item.product_name, item.price, item.quantity, subtotal]
+          [order.id, item.product_id, item.variant_id || null, item.size || null, item.color || null, item.product_name, unitPrice, item.quantity, subtotal]
         );
 
-        // Deduct inventory
-        await client.query(
-          'UPDATE public.products SET stock_quantity = stock_quantity - $1 WHERE id = $2',
-          [item.quantity, item.product_id]
-        );
+        // Deduct inventory from variant if exists, else from product
+        if (item.variant_id) {
+          await client.query(
+            'UPDATE public.product_variants SET stock_quantity = stock_quantity - $1 WHERE id = $2',
+            [item.quantity, item.variant_id]
+          );
+        } else {
+          await client.query(
+            'UPDATE public.products SET stock_quantity = stock_quantity - $1 WHERE id = $2',
+            [item.quantity, item.product_id]
+          );
+        }
       }
 
       // 7. Clear user's cart
@@ -146,9 +159,10 @@ class OrderModel {
 
     const itemsRes = await pool.query(
       `
-      SELECT oi.*, p.image_url
+      SELECT oi.*, p.image_url, pv.color_code
       FROM public.order_items oi
       LEFT JOIN public.products p ON oi.product_id = p.id
+      LEFT JOIN public.product_variants pv ON oi.variant_id = pv.id
       WHERE oi.order_id = $1
       ORDER BY oi.id ASC
     `,
@@ -247,13 +261,20 @@ class OrderModel {
       // 1. Update status to cancelled
       await client.query("UPDATE public.orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1", [orderId]);
 
-      // 2. Restock products
-      const itemsRes = await client.query('SELECT product_id, quantity FROM public.order_items WHERE order_id = $1', [orderId]);
+      // 2. Restock products & variants
+      const itemsRes = await client.query('SELECT product_id, variant_id, quantity FROM public.order_items WHERE order_id = $1', [orderId]);
       for (const item of itemsRes.rows) {
-        await client.query(
-          'UPDATE public.products SET stock_quantity = stock_quantity + $1 WHERE id = $2',
-          [item.quantity, item.product_id]
-        );
+        if (item.variant_id) {
+          await client.query(
+            'UPDATE public.product_variants SET stock_quantity = stock_quantity + $1 WHERE id = $2',
+            [item.quantity, item.variant_id]
+          );
+        } else {
+          await client.query(
+            'UPDATE public.products SET stock_quantity = stock_quantity + $1 WHERE id = $2',
+            [item.quantity, item.product_id]
+          );
+        }
       }
 
       await client.query('COMMIT');

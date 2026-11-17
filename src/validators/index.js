@@ -46,8 +46,15 @@ const categoryCreateValidator = [
     .withMessage('Category name must be between 2 and 100 characters'),
   body('description')
     .optional()
-    .isString()
-    .withMessage('Description must be a string'),
+    .isString(),
+  body('gender')
+    .optional()
+    .isIn(['men', 'women', 'unisex', 'kids'])
+    .withMessage('gender must be: men, women, unisex, kids'),
+  body('parent_id')
+    .optional({ nullable: true })
+    .isInt({ min: 1 })
+    .withMessage('parent_id must be a valid integer ID'),
   validateRequest,
 ];
 
@@ -60,12 +67,16 @@ const categoryUpdateValidator = [
     .trim()
     .notEmpty()
     .withMessage('Category name cannot be empty')
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Category name must be between 2 and 100 characters'),
+    .isLength({ min: 2, max: 100 }),
   body('description')
     .optional()
-    .isString()
-    .withMessage('Description must be a string'),
+    .isString(),
+  body('gender')
+    .optional()
+    .isIn(['men', 'women', 'unisex', 'kids']),
+  body('parent_id')
+    .optional({ nullable: true })
+    .isInt({ min: 1 }),
   validateRequest,
 ];
 
@@ -74,12 +85,10 @@ const productCreateValidator = [
     .trim()
     .notEmpty()
     .withMessage('Product name is required')
-    .isLength({ min: 2, max: 200 })
-    .withMessage('Product name must be between 2 and 200 characters'),
+    .isLength({ min: 2, max: 200 }),
   body('description')
     .optional()
-    .isString()
-    .withMessage('Description must be a string'),
+    .isString(),
   body('price')
     .notEmpty()
     .withMessage('Price is required')
@@ -91,9 +100,15 @@ const productCreateValidator = [
     .withMessage('image_url must be a valid URL'),
   body('category_id')
     .notEmpty()
-    .withMessage('category_id is required')
     .isInt({ min: 1 })
     .withMessage('category_id must be a valid positive integer'),
+  body('gender')
+    .optional()
+    .isIn(['men', 'women', 'unisex', 'kids'])
+    .withMessage('gender must be: men, women, unisex, kids'),
+  body('brand')
+    .optional()
+    .isString(),
   body('stock_quantity')
     .optional()
     .isInt({ min: 0 })
@@ -101,12 +116,10 @@ const productCreateValidator = [
   body('sku')
     .optional()
     .isString()
-    .isLength({ max: 100 })
-    .withMessage('sku must not exceed 100 characters'),
+    .isLength({ max: 100 }),
   body('is_active')
     .optional()
-    .isBoolean()
-    .withMessage('is_active must be a boolean'),
+    .isBoolean(),
   validateRequest,
 ];
 
@@ -118,38 +131,34 @@ const productUpdateValidator = [
     .optional()
     .trim()
     .notEmpty()
-    .withMessage('Product name cannot be empty')
-    .isLength({ min: 2, max: 200 })
-    .withMessage('Product name must be between 2 and 200 characters'),
+    .isLength({ min: 2, max: 200 }),
   body('description')
     .optional()
-    .isString()
-    .withMessage('Description must be a string'),
+    .isString(),
   body('price')
     .optional()
-    .isFloat({ min: 0 })
-    .withMessage('Price must be a nonnegative number'),
+    .isFloat({ min: 0 }),
   body('image_url')
     .optional({ checkFalsy: true })
-    .isURL()
-    .withMessage('image_url must be a valid URL'),
+    .isURL(),
   body('category_id')
     .optional()
-    .isInt({ min: 1 })
-    .withMessage('category_id must be a valid positive integer'),
+    .isInt({ min: 1 }),
+  body('gender')
+    .optional()
+    .isIn(['men', 'women', 'unisex', 'kids']),
+  body('brand')
+    .optional()
+    .isString(),
   body('stock_quantity')
     .optional()
-    .isInt({ min: 0 })
-    .withMessage('stock_quantity must be a nonnegative integer'),
+    .isInt({ min: 0 }),
   body('sku')
     .optional()
-    .isString()
-    .isLength({ max: 100 })
-    .withMessage('sku must not exceed 100 characters'),
+    .isString(),
   body('is_active')
     .optional()
-    .isBoolean()
-    .withMessage('is_active must be a boolean'),
+    .isBoolean(),
   validateRequest,
 ];
 
@@ -163,20 +172,58 @@ const idParamValidator = [
 const productQueryValidator = [
   query('page')
     .optional()
-    .isInt({ min: 1 })
-    .withMessage('Page must be a positive integer'),
+    .isInt({ min: 1 }),
   query('limit')
     .optional()
-    .isInt({ min: 1, max: 100 })
-    .withMessage('Limit must be between 1 and 100'),
+    .isInt({ min: 1, max: 100 }),
   query('category_id')
     .optional()
-    .isInt({ min: 1 })
-    .withMessage('category_id must be a positive integer'),
+    .isInt({ min: 1 }),
+  query('gender')
+    .optional()
+    .isIn(['men', 'women', 'unisex', 'kids']),
   query('in_stock')
     .optional()
-    .isBoolean()
-    .withMessage('in_stock must be a boolean string'),
+    .isBoolean(),
+  query('min_price')
+    .optional()
+    .isFloat({ min: 0 }),
+  query('max_price')
+    .optional()
+    .isFloat({ min: 0 }),
+  query('sort')
+    .optional()
+    .isIn(['price_asc', 'price_desc', 'newest']),
+  validateRequest,
+];
+
+// Variant Validators
+const variantCreateValidator = [
+  param('productId')
+    .isInt({ min: 1 })
+    .withMessage('Valid productId required in URL'),
+  body('size')
+    .trim()
+    .notEmpty()
+    .withMessage('size is required (e.g., S, M, L, XL, 39, 40, 41)'),
+  body('color')
+    .trim()
+    .notEmpty()
+    .withMessage('color is required (e.g., Đen, Trắng, Be)'),
+  body('color_code')
+    .optional()
+    .isString(),
+  body('price_override')
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .withMessage('price_override must be a nonnegative number'),
+  body('stock_quantity')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('stock_quantity must be a nonnegative integer'),
+  body('sku')
+    .optional()
+    .isString(),
   validateRequest,
 ];
 
@@ -213,6 +260,10 @@ const cartItemValidator = [
     .notEmpty()
     .isInt({ min: 1 })
     .withMessage('product_id must be a valid positive integer'),
+  body('variant_id')
+    .optional({ nullable: true })
+    .isInt({ min: 1 })
+    .withMessage('variant_id must be a positive integer'),
   body('quantity')
     .notEmpty()
     .isInt({ min: 1 })
@@ -278,6 +329,7 @@ module.exports = {
   productUpdateValidator,
   idParamValidator,
   productQueryValidator,
+  variantCreateValidator,
   addressCreateValidator,
   cartItemValidator,
   cartItemUpdateValidator,

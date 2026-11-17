@@ -15,11 +15,13 @@ class CartController {
 
   static async addItem(req, res, next) {
     try {
-      const { product_id, quantity } = req.body;
+      const { product_id, variant_id, quantity } = req.body;
       const parsedQty = parseInt(quantity, 10) || 1;
-      const item = await CartModel.addItem(req.user.id, product_id, parsedQty);
+      const parsedVariantId = variant_id ? parseInt(variant_id, 10) : null;
 
+      await CartModel.addItem(req.user.id, product_id, parsedVariantId, parsedQty);
       const updatedCart = await CartModel.getCartDetails(req.user.id);
+
       return res.status(200).json({
         success: true,
         message: 'Item added to cart',
