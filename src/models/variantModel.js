@@ -5,11 +5,66 @@ class VariantModel {
     const query = `
       INSERT INTO public.product_variants (product_id, size, color, color_code, sku, price_override, stock_quantity, image_url, is_active)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ON CONFLICT (product_id, size, color)
+      DO UPDATE SET
+        color_code = COALESCE(EXCLUDED.color_code, product_variants.color_code),
+        sku = COALESCE(EXCLUDED.sku, product_variants.sku),
+        price_override = COALESCE(EXCLUDED.price_override, product_variants.price_override),
+        stock_quantity = EXCLUDED.stock_quantity,
+        image_url = COALESCE(EXCLUDED.image_url, product_variants.image_url),
+        is_active = EXCLUDED.is_active,
+        updated_at = NOW()
       RETURNING *
     `;
     const values = [productId, size, color, colorCode || null, sku || null, priceOverride || null, stockQuantity, imageUrl || null, isActive];
     const res = await pool.query(query, values);
     return res.rows[0];
+  }
+
+  static async createBulk(productId, variantsList) {
+    const client = await pool.getClient();
+    try {
+      await client.query('BEGIN');
+      const results = [];
+
+      for (const item of variantsList) {
+        const query = `
+          INSERT INTO public.product_variants (product_id, size, color, color_code, sku, price_override, stock_quantity, image_url, is_active)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ON CONFLICT (product_id, size, color)
+          DO UPDATE SET
+            color_code = COALESCE(EXCLUDED.color_code, product_variants.color_code),
+            sku = COALESCE(EXCLUDED.sku, product_variants.sku),
+            price_override = COALESCE(EXCLUDED.price_override, product_variants.price_override),
+            stock_quantity = EXCLUDED.stock_quantity,
+            image_url = COALESCE(EXCLUDED.image_url, product_variants.image_url),
+            is_active = EXCLUDED.is_active,
+            updated_at = NOW()
+          RETURNING *
+        `;
+        const values = [
+          productId,
+          item.size,
+          item.color,
+          item.color_code || null,
+          item.sku || null,
+          item.price_override || null,
+          item.stock_quantity !== undefined ? parseInt(item.stock_quantity, 10) : 0,
+          item.image_url || null,
+          item.is_active !== undefined ? Boolean(item.is_active) : true,
+        ];
+        const res = await client.query(query, values);
+        results.push(res.rows[0]);
+      }
+
+      await client.query('COMMIT');
+      return results;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   static async findByProductId(productId) {

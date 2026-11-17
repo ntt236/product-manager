@@ -27,6 +27,15 @@ router.post(
   variantCreateValidator,
   VariantController.createVariant
 );
+
+// Bulk create/update variants (Matrix: size x color in 1 shot)
+router.post(
+  '/:productId/variants/bulk',
+  authenticateToken,
+  authorizeRoles('admin', 'manager'),
+  VariantController.createBulkVariants
+);
+
 router.put(
   '/variants/:id',
   authenticateToken,

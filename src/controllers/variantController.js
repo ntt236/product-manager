@@ -51,6 +51,51 @@ class VariantController {
     }
   }
 
+  // Bulk creation of variants (e.g. Size matrix: 38, 39, 40, 41, 42 for shoes)
+  static async createBulkVariants(req, res, next) {
+    try {
+      const { productId } = req.params;
+      const { variants } = req.body;
+
+      if (!Array.isArray(variants) || variants.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'variants must be a non-empty array of variant objects',
+        });
+      }
+
+      const product = await ProductModel.findById(productId);
+      if (!product) {
+        return res.status(404).json({
+          success: false,
+          message: 'Product not found',
+        });
+      }
+
+      // Basic validation on items
+      for (let i = 0; i < variants.length; i++) {
+        const item = variants[i];
+        if (!item.size || !item.color) {
+          return res.status(400).json({
+            success: false,
+            message: `Variant at index ${i} is missing required 'size' or 'color'`,
+          });
+        }
+      }
+
+      const results = await VariantModel.createBulk(productId, variants);
+
+      return res.status(201).json({
+        success: true,
+        message: `Successfully created/updated ${results.length} variants`,
+        count: results.length,
+        data: results,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async updateVariant(req, res, next) {
     try {
       const { id } = req.params;
