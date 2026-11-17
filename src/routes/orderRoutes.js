@@ -14,5 +14,6 @@ router.put('/:id/cancel', authenticateToken, idParamValidator, OrderController.c
 // Admin & Manager actions: manage and update all orders
 router.get('/', authenticateToken, authorizeRoles('admin', 'manager'), OrderController.getAllOrdersAdmin);
 router.patch('/:id/status', authenticateToken, authorizeRoles('admin', 'manager'), orderStatusValidator, OrderController.updateOrderStatus);
+router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'manager'), orderStatusValidator, OrderController.updateOrderStatus);
 
 module.exports = router;

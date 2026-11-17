@@ -103,10 +103,12 @@ class ProductModel {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     // Sorting
-    let orderBy = 'p.id DESC';
-    if (sort === 'price_asc') orderBy = 'p.price ASC';
-    else if (sort === 'price_desc') orderBy = 'p.price DESC';
-    else if (sort === 'newest') orderBy = 'p.created_at DESC';
+    let orderBy = 'p.created_at DESC, p.id DESC';
+    if (sort === 'price_asc') orderBy = 'p.price ASC, p.id DESC';
+    else if (sort === 'price_desc') orderBy = 'p.price DESC, p.id DESC';
+    else if (sort === 'newest') orderBy = 'p.created_at DESC, p.id DESC';
+    else if (sort === 'name_asc') orderBy = 'p.name ASC, p.id DESC';
+    else if (sort === 'name_desc') orderBy = 'p.name DESC, p.id DESC';
 
     const countQuery = `
       SELECT COUNT(*) AS total

@@ -17,9 +17,21 @@ class AddressController {
   static async create(req, res, next) {
     try {
       // Support flexible field naming aliases from frontend
-      const receiverName = req.body.receiver_name || req.body.receiverName || req.body.name || req.body.fullname;
+      const receiverName =
+        req.body.receiver_name ||
+        req.body.receiverName ||
+        req.body.recipient_name ||
+        req.body.recipientName ||
+        req.body.name ||
+        req.body.fullname;
       const phone = req.body.phone || req.body.phoneNumber || req.body.phone_number;
-      const streetAddress = req.body.street_address || req.body.streetAddress || req.body.address || req.body.street;
+      const streetAddress =
+        req.body.street_address ||
+        req.body.streetAddress ||
+        req.body.address_line ||
+        req.body.addressLine ||
+        req.body.address ||
+        req.body.street;
       const ward = req.body.ward || null;
       const district = req.body.district || req.body.city || '';
       const province = req.body.province || req.body.state || req.body.city || '';

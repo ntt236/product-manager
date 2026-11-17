@@ -19,7 +19,9 @@ class AddressModel {
       const insertQuery = `
         INSERT INTO public.shipping_addresses (user_id, receiver_name, phone, street_address, ward, district, province, is_default)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id, user_id, receiver_name, phone, street_address, ward, district, province, is_default, created_at, updated_at
+        RETURNING id, user_id, receiver_name, receiver_name AS recipient_name, phone,
+                  street_address, street_address AS address_line, ward, district,
+                  province, province AS city, is_default, created_at, updated_at
       `;
       const res = await client.query(insertQuery, [userId, receiverName, phone, streetAddress, ward || null, district, province, isDefault]);
 
@@ -35,7 +37,9 @@ class AddressModel {
 
   static async findByUserId(userId) {
     const query = `
-      SELECT id, user_id, receiver_name, phone, street_address, ward, district, province, is_default, created_at, updated_at
+      SELECT id, user_id, receiver_name, receiver_name AS recipient_name, phone,
+             street_address, street_address AS address_line, ward, district,
+             province, province AS city, is_default, created_at, updated_at
       FROM public.shipping_addresses
       WHERE user_id = $1
       ORDER BY is_default DESC, id DESC

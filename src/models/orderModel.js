@@ -159,7 +159,13 @@ class OrderModel {
 
     const itemsRes = await pool.query(
       `
-      SELECT oi.*, p.image_url, pv.color_code
+      SELECT oi.*,
+             oi.product_name_snapshot AS product_name,
+             oi.price_snapshot AS unit_price,
+             oi.price_snapshot AS price,
+             oi.size_snapshot AS size,
+             oi.color_snapshot AS color,
+             p.image_url, pv.color_code
       FROM public.order_items oi
       LEFT JOIN public.products p ON oi.product_id = p.id
       LEFT JOIN public.product_variants pv ON oi.variant_id = pv.id
@@ -169,8 +175,24 @@ class OrderModel {
       [order.id]
     );
 
+    const addr = typeof order.shipping_address_snapshot === 'string'
+      ? JSON.parse(order.shipping_address_snapshot)
+      : (order.shipping_address_snapshot || {});
+
+    const normalizedAddress = {
+      ...addr,
+      recipient_name: addr.receiver_name || addr.recipient_name || '',
+      receiver_name: addr.receiver_name || addr.recipient_name || '',
+      address_line: addr.street_address || addr.address_line || '',
+      street_address: addr.street_address || addr.address_line || '',
+      city: addr.province || addr.city || '',
+      province: addr.province || addr.city || '',
+    };
+
     return {
       ...order,
+      shipping_address: normalizedAddress,
+      shipping_address_snapshot: normalizedAddress,
       items: itemsRes.rows,
     };
   }
@@ -202,7 +224,36 @@ class OrderModel {
 
     const offset = (page - 1) * limit;
     const query = `
-      SELECT o.*, u.name AS user_name, u.email AS user_email
+      SELECT o.*, u.name AS user_name, u.email AS user_email,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', oi.id,
+                'product_id', oi.product_id,
+                'variant_id', oi.variant_id,
+                'product_name', oi.product_name_snapshot,
+                'product_name_snapshot', oi.product_name_snapshot,
+                'price', oi.price_snapshot,
+                'unit_price', oi.price_snapshot,
+                'price_snapshot', oi.price_snapshot,
+                'size', oi.size_snapshot,
+                'size_snapshot', oi.size_snapshot,
+                'color', oi.color_snapshot,
+                'color_snapshot', oi.color_snapshot,
+                'quantity', oi.quantity,
+                'subtotal', oi.subtotal,
+                'image_url', p.image_url,
+                'color_code', pv.color_code
+              ) ORDER BY oi.id ASC
+            )
+            FROM public.order_items oi
+            LEFT JOIN public.products p ON oi.product_id = p.id
+            LEFT JOIN public.product_variants pv ON oi.variant_id = pv.id
+            WHERE oi.order_id = o.id
+          ),
+          '[]'::json
+        ) AS items
       FROM public.orders o
       JOIN public.users u ON o.user_id = u.id
       ${whereClause}
@@ -212,8 +263,28 @@ class OrderModel {
     values.push(limit, offset);
 
     const res = await pool.query(query, values);
+    const orders = res.rows.map((order) => {
+      const addr = typeof order.shipping_address_snapshot === 'string'
+        ? JSON.parse(order.shipping_address_snapshot)
+        : (order.shipping_address_snapshot || {});
+      const normalizedAddress = {
+        ...addr,
+        recipient_name: addr.receiver_name || addr.recipient_name || '',
+        receiver_name: addr.receiver_name || addr.recipient_name || '',
+        address_line: addr.street_address || addr.address_line || '',
+        street_address: addr.street_address || addr.address_line || '',
+        city: addr.province || addr.city || '',
+        province: addr.province || addr.city || '',
+      };
+      return {
+        ...order,
+        shipping_address: normalizedAddress,
+        shipping_address_snapshot: normalizedAddress,
+      };
+    });
+
     return {
-      orders: res.rows,
+      orders,
       total,
     };
   }
