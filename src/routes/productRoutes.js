@@ -1,18 +1,24 @@
 const express = require('express');
 const ProductController = require('../controllers/productController');
+const ReviewController = require('../controllers/reviewController');
 const { authenticateToken, authorizeRoles } = require('../middlewares/authMiddleware');
 const {
   productCreateValidator,
   productUpdateValidator,
   productQueryValidator,
   idParamValidator,
+  reviewCreateValidator,
 } = require('../validators');
 
 const router = express.Router();
 
-// Read routes: admin, manager, user can view products
-router.get('/', authenticateToken, productQueryValidator, ProductController.getAll);
-router.get('/:id', authenticateToken, idParamValidator, ProductController.getById);
+// Read routes: public or authenticated can view products
+router.get('/', productQueryValidator, ProductController.getAll);
+router.get('/:id', idParamValidator, ProductController.getById);
+
+// Reviews on products
+router.get('/:id/reviews', idParamValidator, ReviewController.getProductReviews);
+router.post('/:id/reviews', authenticateToken, reviewCreateValidator, ReviewController.createReview);
 
 // Write routes: admin and manager can create products
 router.post(

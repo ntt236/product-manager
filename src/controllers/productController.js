@@ -9,10 +9,19 @@ class ProductController {
       const offset = (page - 1) * limit;
       const search = req.query.search ? req.query.search.trim() : null;
       const categoryId = req.query.category_id ? parseInt(req.query.category_id, 10) : null;
+      const inStock = req.query.in_stock === 'true';
+
+      // For customer/user role, default to only active products; admins/managers can see all
+      const isAdminOrManager = req.user && ['admin', 'manager'].includes(req.user.role);
+      const isActive = isAdminOrManager
+        ? (req.query.is_active !== undefined ? req.query.is_active === 'true' : null)
+        : true;
 
       const { products, total } = await ProductModel.findAll({
         search,
         categoryId,
+        isActive,
+        inStock,
         limit,
         offset,
       });
@@ -58,7 +67,7 @@ class ProductController {
 
   static async create(req, res, next) {
     try {
-      const { name, description, price, image_url, category_id } = req.body;
+      const { name, description, price, image_url, category_id, stock_quantity, sku, is_active } = req.body;
 
       // Verify category exists
       const category = await CategoryModel.findById(category_id);
@@ -76,6 +85,9 @@ class ProductController {
         imageUrl: image_url,
         categoryId: category_id,
         createdBy: req.user ? req.user.id : null,
+        stockQuantity: stock_quantity !== undefined ? parseInt(stock_quantity, 10) : 0,
+        sku: sku || null,
+        isActive: is_active !== undefined ? Boolean(is_active) : true,
       });
 
       return res.status(201).json({
@@ -91,7 +103,7 @@ class ProductController {
   static async update(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, description, price, image_url, category_id } = req.body;
+      const { name, description, price, image_url, category_id, stock_quantity, sku, is_active } = req.body;
 
       const existing = await ProductModel.findById(id);
       if (!existing) {
@@ -117,6 +129,9 @@ class ProductController {
         price,
         imageUrl: image_url,
         categoryId: category_id,
+        stockQuantity: stock_quantity !== undefined ? parseInt(stock_quantity, 10) : undefined,
+        sku,
+        isActive: is_active !== undefined ? Boolean(is_active) : undefined,
       });
 
       return res.status(200).json({

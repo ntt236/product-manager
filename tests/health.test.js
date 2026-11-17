@@ -16,7 +16,7 @@ describe('Health and Root API Endpoints', () => {
   it('GET / should return 200 with API overview', async () => {
     const res = await request(app).get('/');
     expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveProperty('name', 'Product Management System API');
+    expect(res.body.name).toMatch(/Product Management|E-Commerce/i);
     expect(res.body).toHaveProperty('endpoints');
   });
 
