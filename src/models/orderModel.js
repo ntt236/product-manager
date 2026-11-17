@@ -300,11 +300,21 @@ class OrderModel {
     const query = `
       UPDATE public.orders
       SET status = $1, updated_at = NOW()
-      WHERE id = $2
+      WHERE id = $2 AND status != 'cancelled'
       RETURNING *
     `;
     const res = await pool.query(query, [newStatus, orderId]);
-    return res.rows[0] || null;
+    if (res.rows.length === 0) {
+      // Check whether order exists but was cancelled
+      const checkRes = await pool.query('SELECT status FROM public.orders WHERE id = $1 LIMIT 1', [orderId]);
+      if (checkRes.rows.length > 0 && checkRes.rows[0].status === 'cancelled') {
+        const err = new Error('Đơn hàng đã bị hủy, không thể cập nhật trạng thái.');
+        err.statusCode = 400;
+        throw err;
+      }
+      return null;
+    }
+    return res.rows[0];
   }
 
   static async cancelOrder(orderId, userId) {
